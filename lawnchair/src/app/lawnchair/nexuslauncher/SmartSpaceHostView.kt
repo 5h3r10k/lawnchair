@@ -9,6 +9,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.View.OnLongClickListener
 import android.view.ViewGroup
+import android.widget.AdapterView
 import androidx.core.view.HapticFeedbackConstantsCompat
 import app.lawnchair.LawnchairLauncher
 import app.lawnchair.util.unsafeLazy
@@ -29,6 +30,8 @@ sealed class SmartSpaceHostView(context: Context) :
 
     @Suppress("LeakingThis")
     private val mLongPressHelper: CheckLongPressHelper = CheckLongPressHelper(this, this)
+
+    private var mIsScrollable = false
 
     override fun getErrorView(): View {
         return SmartspaceQsb.getDateView(this)
@@ -75,6 +78,13 @@ sealed class SmartSpaceHostView(context: Context) :
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.action == MotionEvent.ACTION_DOWN) {
+            val dragLayer = mLauncher.dragLayer
+            if (mIsScrollable) {
+                dragLayer.requestDisallowInterceptTouchEvent(true)
+            }
+            dragLayer.setTouchCompleteListener(this)
+        }
         mLongPressHelper.onTouchEvent(ev)
         return mLongPressHelper.hasPerformedLongPress()
     }
@@ -94,6 +104,37 @@ sealed class SmartSpaceHostView(context: Context) :
         if (!mLongPressHelper.hasPerformedLongPress()) {
             mLongPressHelper.cancelLongPress()
         }
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        mIsScrollable = isTaggedAsScrollable() || checkScrollableRecursively(this)
+    }
+
+    private fun isTaggedAsScrollable(): Boolean {
+        for (i in 0 until childCount) {
+            (getChildAt(i).getTag(android.R.id.widget_frame) as? Int)?.let { widgetFrameTag ->
+                // The widget_frame tag is set to 0 when RemoteViews is created from
+                // DrawInstructions (i.e. the widget renders its own content via a Canvas-like
+                // API and is always considered scrollable). A non-zero value is a regular
+                // RemoteViews layout resource ID, which may or may not be scrollable — that
+                // case is handled by checkScrollableRecursively.
+                return widgetFrameTag == 0
+            }
+        }
+        return false
+    }
+
+    // Mirrors LauncherAppWidgetHostView.checkScrollableRecursively: checks for AdapterView
+    // descendants (ListView, GridView, StackView, etc.) in the RemoteViews hierarchy.
+    // Widgets backed by DrawInstructions are detected separately by isTaggedAsScrollable.
+    private fun checkScrollableRecursively(viewGroup: ViewGroup): Boolean {
+        if (viewGroup is AdapterView<*>) return true
+        for (i in 0 until viewGroup.childCount) {
+            val child = viewGroup.getChildAt(i)
+            if (child is ViewGroup && checkScrollableRecursively(child)) return true
+        }
+        return false
     }
 
     private fun openSettings(v: View): Boolean {
