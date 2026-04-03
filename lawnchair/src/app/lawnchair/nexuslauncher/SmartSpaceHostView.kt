@@ -75,12 +75,14 @@ sealed class SmartSpaceHostView(context: Context) :
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        super.onInterceptTouchEvent(ev)
         mLongPressHelper.onTouchEvent(ev)
         return mLongPressHelper.hasPerformedLongPress()
     }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(ev: MotionEvent): Boolean {
+        super.onTouchEvent(ev)
         mLongPressHelper.onTouchEvent(ev)
         return true
     }
