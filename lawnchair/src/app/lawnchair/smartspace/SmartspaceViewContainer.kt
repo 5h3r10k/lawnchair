@@ -7,6 +7,7 @@ import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import app.lawnchair.LawnchairLauncher
 import app.lawnchair.launcher
@@ -61,7 +62,29 @@ class SmartspaceViewContainer @JvmOverloads constructor(
         true
     }
 
+    private fun checkScrollableRecursively(viewGroup: ViewGroup): Boolean {
+        if (viewGroup is android.widget.AdapterView<*>) {
+            return true
+        } else {
+            for (i in 0 until viewGroup.childCount) {
+                val child = viewGroup.getChildAt(i)
+                if (child is ViewGroup) {
+                    if (checkScrollableRecursively(child)) {
+                        return true
+                    }
+                }
+            }
+        }
+        return false
+    }
+
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.action == MotionEvent.ACTION_DOWN) {
+            val dragLayer = context.launcher.dragLayer
+            if (checkScrollableRecursively(this)) {
+                dragLayer.requestDisallowInterceptTouchEvent(true)
+            }
+        }
         longPressHelper.onTouchEvent(ev)
         return longPressHelper.hasPerformedLongPress()
     }
